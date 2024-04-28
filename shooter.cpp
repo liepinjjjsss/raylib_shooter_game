@@ -14,6 +14,44 @@ struct Bullet
     bool active;
 };
 
+struct Zombie
+{
+    Vector2 position;
+    Vector2 direction;
+    Color BLUE;
+    bool active;
+    int maxHealth;
+    int currentHealth;
+    int radius = 25;
+    int widht = radius*2;
+    int height = radius*2;
+};
+
+struct Giant
+{
+    Vector2 position;
+    Vector2 direction;
+    Color BLUE;
+    bool active;
+    int maxHealth;
+    int currentHealth;
+    int radius = 50;
+    int widht = radius*2;
+    int height = radius*2;
+};
+
+
+struct healthBar
+{
+    Vector2 position;
+    Color WHITE;
+    bool active;
+    int health;
+    int width = health*10;
+    int height = 10;
+};
+
+
 void move(float& zombieX, float& zombieY, float playerX, float playerY)
 {
     float relativePositionX = playerX - zombieX;
@@ -49,21 +87,46 @@ Vector2 shoot(Vector2 mouse, float playerX, float playerY)
     return bullet;
 }
 
+void spawnZombies(vector<Zombie>& zombies, int screenWidth, int screenHeight)
+{
+    Zombie newZombie;
+            newZombie.position = {GetRandomValue(0,screenWidth), GetRandomValue(0,screenHeight)};
+            newZombie.maxHealth = 10;
+            newZombie.currentHealth = newZombie.maxHealth;
+            zombies.push_back(newZombie);
+}
+
+void spawnGiant(vector<Giant>& giants, int screenWidth, int screenHeight)
+{
+    Giant newGiant;
+    newGiant.position ={GetRandomValue(0,screenWidth), GetRandomValue(0,screenHeight)}; 
+    newGiant.maxHealth = 100;
+    newGiant.currentHealth = newGiant.maxHealth;
+    giants.push_back(newGiant);
+
+}
+
+
+
+
 int main()
 {   
-    InitWindow(800, 800, "shooter");
+    InitWindow(1920, 1080, "shooter");
 
     vector<Bullet> bullets;
+    vector<Zombie> zombies;
+    vector<Giant> giants;
 
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
     int movementSpeed = 5;
-    int zombiePosX = GetRandomValue(200,400);
-    int zombiePosY = GetRandomValue(200,400);
+    float timer = 0;
+    float spawnInterval = 5.0f;
+    int score = 0;
+
     
-    Vector2 zombie = {zombiePosX, zombiePosY};
     Rectangle player = {screenWidth/2, screenHeight/2, 50, 50};
-    int zombieHealth = 20;
+    // Rectangle healthBar = {zombies[0].position.x, zombies[0].position.y + 25, 50, 50};
 
 
     
@@ -90,8 +153,8 @@ int main()
             player.x += movementSpeed;
         }
 
-        move(zombie.x, zombie.y, player.x, player.y);
 
+        timer += GetFrameTime();
         Vector2 mousePos = {GetMousePosition()};
         Vector2 playerPos = {player.x+player.width/2, player.y+player.height/2};
         Vector2 direction = {mousePos.x - player.x, mousePos.y - player.y};
@@ -106,7 +169,8 @@ int main()
         float relativePositionY;
         float aimLine;
         Vector2 bullet;
-        float speed = 2;
+        float speed = 5;
+
         
         
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
@@ -136,15 +200,41 @@ int main()
             bullets[i].position.x += bullets[i].direction.x;
             bullets[i].position.y += bullets[i].direction.y;
         }
+
+        if (IsKeyPressed(KEY_O)||timer >= spawnInterval)
+        {
+            spawnZombies(zombies, screenWidth, screenHeight);
+            timer = 0;
+
+        }
         for (int i = 0; i < bullets.size(); ++i)
         {
-            bool hit = CheckCollisionCircles(zombie, 25, bullets[i].position, 5);
-            if (hit)
+            for (int j = 0; j < zombies.size(); ++j)
             {
-                bullets.erase(bullets.begin()+i);
-                zombieHealth--;
-                cout << zombieHealth <<endl;
+                bool zombiehit = CheckCollisionCircles(zombies[j].position, 25, bullets[i].position, 5);
+                if (zombiehit)
+                    {
+                        bullets.erase(bullets.begin()+i);
+                        zombies[j].currentHealth -= 1;
+                    }
+                    
             }
+
+            for (int k = 0; k < giants.size(); ++k)
+            { 
+                    bool gianthit = CheckCollisionCircles(giants[k].position, 50, bullets[i].position, 5);
+                    if (gianthit)
+                    {
+                        bullets.erase(bullets.begin()+i);
+                        giants[k].currentHealth -= 1;
+                    }
+
+            }
+        }
+
+        if (IsKeyPressed(KEY_P))
+        {
+            spawnGiant(giants, screenWidth, screenHeight);
         }
 
         BeginDrawing();
@@ -153,9 +243,56 @@ int main()
         {
             DrawCircleV(bullet.position, 5, WHITE);
         }
-        
+
+        for (const auto& zombie : zombies)
+        {   
+            float healtPercentage = float(zombie.currentHealth)/zombie.maxHealth;
+            float healthBarWidth = 50*healtPercentage;
+
+
+
+            DrawCircleV(zombie.position, 25, zombie.Color);
+            DrawRectangle(zombie.position.x - zombie.widht/2, zombie.position.y - 45, 50, 10, GRAY);
+            DrawRectangle(zombie.position.x - zombie.widht/2, zombie.position.y - 45, healthBarWidth, 10, RED);
+            DrawText(to_string(zombie.currentHealth).c_str(), zombie.position.x - 3 , zombie.position.y - 45, 6, WHITE);
+            
+        }
+        for (int i = 0; i < zombies.size(); ++i)
+        {
+            move(zombies[i].position.x, zombies[i].position.y, player.x, player.y);
+            if (zombies[i].currentHealth <= 0)
+            {   
+                zombies.erase(zombies.begin()+i);
+                ++score;
+            }
+
+            
+        }
+
+        for (const auto& giant : giants)
+        {
+            float healtPercentage = float(giant.currentHealth)/giant.maxHealth;
+            float healtbarWidth = 100*healtPercentage;
+
+            DrawCircleV(giant.position, 50, GREEN);
+            DrawRectangle(giant.position.x - giant.widht/2, giant.position.y - (giant.radius+10), 100, 10, GRAY);
+            DrawRectangle(giant.position.x - giant.widht/2, giant.position.y - (giant.radius+10), healtbarWidth, 10, RED);
+            DrawText(to_string(giant.currentHealth).c_str(), giant.position.x - 3 , giant.position.y - (giant.radius+10), 6, WHITE);
+        }
+        for (int i = 0; i < giants.size(); ++i)
+        {
+            move(giants[i].position.x, giants[i].position.y, player.x, player.y);
+            if (giants[i].currentHealth <= 0)
+            {   
+                giants.erase(giants.begin()+i);
+                ++score;
+            }
+        }
+
+
+
+        DrawText(to_string(score).c_str(), screenWidth/2, 40, 20, WHITE);
         DrawRectangleRec(player, RED);
-        DrawCircleV(zombie, 25, BLUE);
         DrawLineV(playerPos, mousePos, WHITE); 
         EndDrawing();
         ClearBackground(BLACK);
